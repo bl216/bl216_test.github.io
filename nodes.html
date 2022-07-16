@@ -1,0 +1,118 @@
+맥os에 nodejs를 설치하여 npm/npx커맨드를 사용하여 react.js를 사용하기
+
+1. 다운로드/설치 (안깔려있으면)
+https://nodejs.org/en/download/
+
+확인
+node -v
+v16.16.0
+
+npm -v
+8.11.0
+
+2. 리액트 설치
+cd src/main
+npx create-react-app frontend
+그러면
+Need to install the following packages:
+  create-react-app
+Ok to proceed? (y) y
+
+설치에 수분 걸린다.
+근데 갑자기 중간에 아래와같은 메세지가 뜨면서 
+Git repo not initialized Error: Command failed: git --version
+다음과 같은 창이 뜬다. (nodejshtml폴더에 자료있음)
+깃이 안깔려있기 때문이다. 설치과정에서 깃을 이용해서뭔가를 다운받아야 하는 것 같다.
+
+깃설치에시간이 꽤걸렸다.근데웃긴건
+깃 설치가완료되기전에아래와같은메세지와함께 리액트설치가완료되었다는 것이다.
+Success! Created frontend at /Users/bl216/Development/spring-boot-tutorial/src/main/frontend
+애니웨이
+
+nodejshtml 4번째 사진같이 되어있으며 성공
+
+확인
+cd frontend	# cd {프로젝트명}
+npm start #勝手にブラウザから立ち上がる。 #http://localhost:3000
+
+
+3.Spring Boot와 React 연동하기
+공식문서: https://create-react-app.dev/docs/proxying-api-requests-in-development/
+CORS 관련 오류를 방지하기 위해 proxy를 설정해주도록 하겠습니다.
+CORS (Cross Origin Resource Sharing)
+서버와 클라이언트가 동일한 IP주소에서 동작하고 있다면, resource를 제약 없이 서로 공유할 수 있지만, 만약 다른 도메인에 있다면 원칙적으로 어떤 데이터도 주고받을 수 없도록 하는 매커니즘입니다.
+
+src/main/frontend 폴더에서 필요한 모듈을 설치해줍니다.
+npm install http-proxy-middleware --save
+
+①src/main/frontend/src 폴더에서 setupProxy.js 파일을 생성하고, 아래의 코드를 붙여넣기합니다.
+
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+module.exports = function(app) {
+  app.use(
+    '/api',
+    createProxyMiddleware({
+      target: 'http://localhost:8080',	# 서버 URL or localhost:설정한포트번호
+      changeOrigin: true,
+    })
+  );
+};
+
+이제 프론트엔드에서 '/api'로 요청을 보내면, 백엔드인 8080포트(=target)로 요청이 도착하게 됩니다.->라고써있지만 api가 제대로 리다이렉트되는지지금상태에서느 알 ㅅ 없다.
+curl localhost:3000/api/hello
+{"timestamp":"2022-07-16T07:32:31.054+00:00","status":404,"error":"Not Found","path":"/api/hello"}
+
+
+Axios를 이용한 서버 통신
+
+Axios란 백엔드와 프론트엔드 사이의 통신을 쉽게 하기 위해 사용하는 라이브러리입니다.
+
+1. 프론트엔드
+
+②src/main/frontend 폴더에서 axios를 설치해줍니다.
+npm install axios --save
+
+src/main/frontend/src/App.js의 내용을 지우고 아래 코드를 붙여넣기 해주세요.
+import React, {useEffect, useState} from 'react';
+import axios from 'axios';
+
+function App() {
+   const [hello, setHello] = useState('')
+
+    useEffect(() => {
+        axios.get('/api/hello')
+        .then(response => setHello(response.data))
+        .catch(error => console.log(error))
+    }, []);
+
+    return (
+        <div>
+            백엔드에서 가져온 데이터입니다 : {hello}
+        </div>
+    );
+}
+
+export default App;
+
+2. 백엔드
+
+③SpringBootTutorialApplication.java에 이하 메소드를추가한다.
+
+@GetMapping("/api/hello")
+public String test() {
+    return "Hello, world!";
+}
+
+http://localhost:8080/api/hello ->사진있음
+http://localhost:3000 ->사진있으나한국어가있으므로다시 ※npm start로 리액트서버를돌린상태여야한다.
+
+localhost:3000에서 localhost:8080/api/hello로부터 데이터를 요청해 받아와 출력하는 것을 볼 수 있습니다.
+
+
+※①②③이 성립이 되어야 setupProxy.js에 추가한api라는넘이 작동한다. 같은방식으로 api2라든가 api3도 사용가능.
+※이런식으로도 가능: https://velog.io/@jung-co/Spring-boot-와-React-연동하기
+※여담이지만 나중에 혹시 package.json에 "proxy": "http://localhost:8080",를 추가한다던가 할 때 잘 작동이안되면 rm -r package-lock.json node_modules로 지워버리고 npm install로 다시인스톨하면된다. https://stackoverflow.com/questions/48291950/proxy-not-working-for-react-and-node
+
+public String test() {ㅔ
+public String test() { 
