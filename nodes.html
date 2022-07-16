@@ -114,5 +114,95 @@ localhost:3000에서 localhost:8080/api/hello로부터 데이터를 요청해 �
 ※이런식으로도 가능: https://velog.io/@jung-co/Spring-boot-와-React-연동하기
 ※여담이지만 나중에 혹시 package.json에 "proxy": "http://localhost:8080",를 추가한다던가 할 때 잘 작동이안되면 rm -r package-lock.json node_modules로 지워버리고 npm install로 다시인스톨하면된다. https://stackoverflow.com/questions/48291950/proxy-not-working-for-react-and-node
 
-public String test() {ㅔ
-public String test() { 
+여기까지는 실행까지는 완료됩니다. 
+아제는 실행을 하는 과정이 React 서버를 키고, Spring Boot 서버도 켜야지만 되기때문에, 스프링 부트를 통해서만 실행되게끔하려면 패키징을 해줘야합니다.
+스프링부트와 React APP을 함께 패키징하기
+1. Maven으로 NPM 실행시키기
+ 
+React와 스프링 부트를 동시에 빌드시키기위해서는 maven을 통해서 빌드되는 도중에 npm이 실행되야하는데요. Maven에 새로운 Plugin을 추가해줘야합니다.
+
+pom.xml
+
+<plugin>    
+  <groupId>com.github.eirslett</groupId>    
+  <artifactId>frontend-maven-plugin</artifactId>    
+  <version>1.9.1</version>    
+  <configuration>        
+    <workingDirectory>src/main/frontend</workingDirectory>     <!--남들은 frontend만으로 되든데 나는 src/main을 추가해줘야했다.-->
+    <installDirectory>target</installDirectory>    
+  </configuration>    
+  <executions>        
+    <execution>            
+      <id>install node and npm</id>            
+      <goals>                
+        <goal>install-node-and-npm</goal>            
+      </goals>            
+      <configuration>                
+        <nodeVersion>v16.16.0</nodeVersion>                
+        <npmVersion>8.11.0</npmVersion>            
+      </configuration>        
+    </execution>        
+    <execution>            
+      <id>npm install</id>            
+      <goals>                
+        <goal>npm</goal>            
+      </goals>            
+      <configuration>                
+        <arguments>install</arguments>            
+      </configuration>        
+    </execution>        
+    <execution>            
+      <id>npm run build</id>            
+      <goals>                
+        <goal>npm</goal>            
+      </goals>            
+      <configuration>                
+        <arguments>run build</arguments>            
+      </configuration>        
+    </execution>    
+  </executions>
+</plugin>
+다음과 같은 구문을 <plugins> 안에 추가시켜줘야합니다.
+단 조건이 있습니다. 빌드시 로컬 npm, node를 사용해서 빌드를 하기때문에 로컬의 npm과 node의 버젼을 일치시켜야합니다.
+그리고 frontend-maven-plugin의 버젼도 맞춰줘야합니다. 
+https://github.com/eirslett/frontend-maven-plugin
+
+그리고 spring-boot-tutorial디렉토리에서
+  ./mvnw clean install
+빌드 완료 구문이 뜨게되고, 이때 FrontEnd 폴더안의 Build 폴더에는 여러가지 파일들이 생겨있을 겁니다. 
+
+2. Spring Boot JAR 파일 안에 프론트엔드 Build파일 포함 시키기
+<plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <target>
+                                <copy todir="${project.build.directory}/classes/public">
+                                    <fileset dir="${project.basedir}/src/main/frontend/build"/> <!--여기도마찬가지-->
+                                </copy>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+를 추가시켜준 뒤에 아까와 동일하게
+  ./mvnw clean install
+  
+를 실행시켜주면 아까와 동일하게 빌드를 거쳐서 빌드가 완료된 뒤에, 
+target폴더를 확인해보면, 이전의 frontend/build 안에 포함되어있는 파일들이 target/classes/public 안에 들어가 있는걸 확인 할 수 있습니다. 
+
+  spring-boot-tutorial-0.0.1-SNAPSHOT.jar 를 생성하게되고 이파일을 실행시키려면
+  java -jar target/spring-boot-tutorial-0.0.1-SNAPSHOT.jar
+  로 실행시켜주면, 스프링부트의 실행화면이 터미널에 뜨며, 
+http://localhost:8080/에서 아까 React서버에서 뜨던 화면이 뜨는 것을 볼 수 있습니다. 
+
+  
+마무리
+그러면 React는 React대로 따로 개발하면되며, Spring Boot는 Spring Boot대로 따로 개발하면 되기때문에 훨씬 빠르게 만들 수 있습니다.
